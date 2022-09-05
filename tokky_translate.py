@@ -1,12 +1,19 @@
 import os
+from typing import List
 
 import requests
 import tweepy
 
 
-def tokky_translate_jpy_eng_jpy():
+def filter_by_words(words: List[str], tweet_text: str):
+    for word in words:
+        if word in tweet_text:
+            return True
+    return False
+
+
+def tokky_translate_jpy_eng_jpy(twitter_id: str, filtering_words: List[str]):
     try:
-        id_ = os.environ["TWITTER_TARGET_ID"]
         api_key = os.environ["TWTTER_API_KEY"]
         api_key_secret = os.environ["TWITTER_KEY_SECRET"]
         access_token = os.environ["TWITTER_ACCESS_TOKEN"]
@@ -15,20 +22,24 @@ def tokky_translate_jpy_eng_jpy():
         auth = tweepy.OAuthHandler(api_key, api_key_secret)
         auth.set_access_token(access_token, access_token_secret)
         api = tweepy.API(auth)
-        results = api.user_timeline(id_, count=50)
+        results = api.user_timeline(twitter_id, count=12)
+        translated = False
         for tweet in results:
             try:
-                if not tweet.favorited:
-                    eng = translate_jpy_to_eng(tweet.text)["translations"][0]["text"]
-                    jpy = translate_eng_to_jpy(eng)["translations"][0]["text"]
-                    eng_with_mention = f"@{id_} {eng}"
-                    my_tweet = api.update_status(status=eng_with_mention, in_reply_to_status_id=tweet.id)
-                    jpy_with_mention = f"@{my_tweet.user.screen_name} {jpy}"
-                    api.update_status(status=jpy_with_mention, in_reply_to_status_id=my_tweet.id)
-                    tweet.favorite()
+                if not tweet.favorited and not translated:
+                    if filter_by_words(filtering_words, tweet.text):
+                        eng = translate_jpy_to_eng(tweet.text)["translations"][0]["text"]
+                        print(eng)
+                        jpy = translate_eng_to_jpy(eng)["translations"][0]["text"]
+                        print(jpy)
+                        eng_with_mention = f"@{twitter_id} {eng}"
+                        my_tweet = api.update_status(status=eng_with_mention, in_reply_to_status_id=tweet.id)
+                        jpy_with_mention = f"@{my_tweet.user.screen_name} {jpy}"
+                        api.update_status(status=jpy_with_mention, in_reply_to_status_id=my_tweet.id)
+                        tweet.favorite()
+                        translated = True
             except Exception as e:
                 print(e)
-
 
     except Exception as e:
         print(e)
@@ -67,4 +78,4 @@ def translate_eng_to_jpy(text: str):
 
 
 if __name__ == "__main__":
-    tokky_translate_jpy_eng_jpy()
+    tokky_translate_jpy_eng_jpy(twitter_id="osugorira2015", filtering_words=[])
